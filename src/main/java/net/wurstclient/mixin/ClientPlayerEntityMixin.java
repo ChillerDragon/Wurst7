@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 Wurst-Imperium and contributors.
+ * Copyright (c) 2014-2021 Wurst-Imperium and contributors.
  *
  * This source code is subject to the terms of the GNU General Public
  * License, version 3. If a copy of the GPL was not distributed with this
@@ -17,11 +17,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.mojang.authlib.GameProfile;
 
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.MovementType;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.network.packet.c2s.play.ChatMessageC2SPacket;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.WurstClient;
@@ -33,6 +36,7 @@ import net.wurstclient.events.PlayerMoveListener.PlayerMoveEvent;
 import net.wurstclient.events.PostMotionListener.PostMotionEvent;
 import net.wurstclient.events.PreMotionListener.PreMotionEvent;
 import net.wurstclient.events.UpdateListener.UpdateEvent;
+import net.wurstclient.hacks.FullbrightHack;
 import net.wurstclient.mixinterface.IClientPlayerEntity;
 
 @Mixin(ClientPlayerEntity.class)
@@ -124,6 +128,19 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayerEntity
 			cir.setReturnValue(false);
 	}
 	
+	@Redirect(
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screen/Screen;isPauseScreen()Z",
+			ordinal = 0),
+		method = {"updateNausea()V"})
+	private boolean onUpdateNausea(Screen screen)
+	{
+		if(WurstClient.INSTANCE.getHax().portalGuiHack.isEnabled())
+			return true;
+		
+		return screen.isPauseScreen();
+	}
+	
 	@Override
 	public void setVelocityClient(double x, double y, double z)
 	{
@@ -161,6 +178,19 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayerEntity
 	{
 		return super.clipAtLedge()
 			|| WurstClient.INSTANCE.getHax().safeWalkHack.isEnabled();
+	}
+	
+	@Override
+	public boolean hasStatusEffect(StatusEffect effect)
+	{
+		FullbrightHack fullbright =
+			WurstClient.INSTANCE.getHax().fullbrightHack;
+		
+		if(effect == StatusEffects.NIGHT_VISION
+			&& fullbright.isNightVisionActive())
+			return true;
+		
+		return super.hasStatusEffect(effect);
 	}
 	
 	@Override
